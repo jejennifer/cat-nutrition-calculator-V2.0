@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="貓咪每日營養與鮮食配方計算機 — 根據體重、年齡與活動量精準計算貓咪每日熱量需求">
+    <title>🐱 貓咪每日營養計算機</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'nutrition/styles.css' %}">
+</head>
+<body>
+    <!-- Animated background particles -->
+    <div class="bg-particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-icon">🐱</div>
+            <h1>貓咪每日營養計算機</h1>
+            <p class="subtitle">根據體重、年齡與活動量，精準計算毛孩每日熱量與營養需求</p>
+        </header>
+
+        <!-- Main Card -->
+        <main class="main-card">
+            <!-- Input Section -->
+            <section class="input-section">
+                <h2 class="section-title">
+                    <span class="section-icon">📋</span>
+                    基本資料
+                </h2>
+
+                <div class="form-grid">
+                    <!-- Weight -->
+                    <div class="form-group" id="weight-group">
+                        <label for="weight">體重 (kg)</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="weight" name="weight"
+                                   min="0.1" max="30" step="0.1"
+                                   placeholder="例：4.5" autocomplete="off">
+                            <span class="input-unit">kg</span>
+                        </div>
+                        <div class="input-hint">一般家貓約 3–6 kg</div>
+                    </div>
+
+                    <!-- Age Category -->
+                    <div class="form-group" id="age-group">
+                        <label for="age_category">年齡層</label>
+                        <div class="select-wrapper">
+                            <select id="age_category" name="age_category">
+                                <option value="" disabled selected>請選擇年齡層</option>
+                                {% for value, label in age_choices %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <span class="select-arrow">▾</span>
+                        </div>
+                    </div>
+
+                    <!-- Activity Level -->
+                    <div class="form-group" id="activity-group">
+                        <label for="activity_level">活動量</label>
+                        <div class="activity-buttons">
+                            <button type="button" class="activity-btn" data-value="low">
+                                <span class="activity-emoji">😴</span>
+                                <span class="activity-label">低</span>
+                                <span class="activity-desc">多數時間睡覺</span>
+                            </button>
+                            <button type="button" class="activity-btn" data-value="medium">
+                                <span class="activity-emoji">🐾</span>
+                                <span class="activity-label">中</span>
+                                <span class="activity-desc">一般家貓</span>
+                            </button>
+                            <button type="button" class="activity-btn" data-value="high">
+                                <span class="activity-emoji">⚡</span>
+                                <span class="activity-label">高</span>
+                                <span class="activity-desc">好動愛玩耍</span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="activity_level" name="activity_level" value="">
+                    </div>
+                </div>
+
+                <!-- Calculate Button -->
+                <button type="button" id="calculate-btn" class="calculate-btn" disabled>
+                    <span class="btn-text">開始計算</span>
+                    <span class="btn-loading" style="display:none;">
+                        <span class="spinner"></span>計算中...
+                    </span>
+                </button>
+
+                <!-- Error Message -->
+                <div id="error-msg" class="error-msg" style="display:none;"></div>
+            </section>
+
+            <!-- Divider -->
+            <div class="section-divider"></div>
+
+            <!-- Results Section -->
+            <section class="results-section" id="results-section" style="display:none;">
+                <h2 class="section-title">
+                    <span class="section-icon">📊</span>
+                    計算結果
+                </h2>
+
+                <!-- Main Calories -->
+                <div class="calorie-display">
+                    <div class="calorie-ring">
+                        <svg viewBox="0 0 160 160" class="ring-svg">
+                            <circle cx="80" cy="80" r="70" class="ring-bg"/>
+                            <circle cx="80" cy="80" r="70" class="ring-fill" id="calorie-ring-fill"/>
+                        </svg>
+                        <div class="calorie-value">
+                            <span class="calorie-number" id="der-value">0</span>
+                            <span class="calorie-unit">kcal/天</span>
+                        </div>
+                    </div>
+                    <div class="calorie-label">每日能量需求 (DER)</div>
+                </div>
+
+                <!-- Detail Cards -->
+                <div class="detail-cards">
+                    <div class="detail-card rer-card">
+                        <div class="detail-icon">🔥</div>
+                        <div class="detail-info">
+                            <span class="detail-label">靜態能量需求 (RER)</span>
+                            <span class="detail-value" id="rer-value">—</span>
+                        </div>
+                    </div>
+                    <div class="detail-card factor-card">
+                        <div class="detail-icon">📐</div>
+                        <div class="detail-info">
+                            <span class="detail-label">年齡係數</span>
+                            <span class="detail-value" id="age-factor-value">—</span>
+                        </div>
+                    </div>
+                    <div class="detail-card factor-card">
+                        <div class="detail-icon">🏃</div>
+                        <div class="detail-info">
+                            <span class="detail-label">活動係數</span>
+                            <span class="detail-value" id="activity-factor-value">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Macronutrients -->
+                <h3 class="subsection-title">每日營養素建議</h3>
+                <div class="macro-grid">
+                    <div class="macro-card protein">
+                        <div class="macro-bar">
+                            <div class="macro-bar-fill" id="protein-bar" style="width:0%"></div>
+                        </div>
+                        <div class="macro-info">
+                            <span class="macro-name">蛋白質</span>
+                            <span class="macro-value" id="protein-value">— g</span>
+                        </div>
+                        <span class="macro-percent">52%</span>
+                    </div>
+                    <div class="macro-card fat">
+                        <div class="macro-bar">
+                            <div class="macro-bar-fill" id="fat-bar" style="width:0%"></div>
+                        </div>
+                        <div class="macro-info">
+                            <span class="macro-name">脂肪</span>
+                            <span class="macro-value" id="fat-value">— g</span>
+                        </div>
+                        <span class="macro-percent">36%</span>
+                    </div>
+                    <div class="macro-card carb">
+                        <div class="macro-bar">
+                            <div class="macro-bar-fill" id="carb-bar" style="width:0%"></div>
+                        </div>
+                        <div class="macro-info">
+                            <span class="macro-name">碳水化合物</span>
+                            <span class="macro-value" id="carb-value">— g</span>
+                        </div>
+                        <span class="macro-percent">12%</span>
+                    </div>
+                </div>
+
+                <!-- Formula Explanation -->
+                <div class="formula-box">
+                    <h4>📘 計算公式</h4>
+                    <p><strong>RER</strong> = 70 × 體重(kg)<sup>0.75</sup></p>
+                    <p><strong>DER</strong> = RER × 年齡係數 × 活動係數</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>⚠️ 本計算結果僅供參考，實際餵食量請諮詢獸醫師</p>
+        </footer>
+    </div>
+
+    <script>
+    (function() {
+        const weightInput = document.getElementById('weight');
+        const ageSelect = document.getElementById('age_category');
+        const activityHidden = document.getElementById('activity_level');
+        const activityBtns = document.querySelectorAll('.activity-btn');
+        const calculateBtn = document.getElementById('calculate-btn');
+        const errorMsg = document.getElementById('error-msg');
+        const resultsSection = document.getElementById('results-section');
+
+        // Activity button selection
+        activityBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                activityBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activityHidden.value = btn.dataset.value;
+                checkFormValidity();
+            });
+        });
+
+        // Form validation
+        function checkFormValidity() {
+            const valid = weightInput.value > 0
+                       && ageSelect.value !== ''
+                       && activityHidden.value !== '';
+            calculateBtn.disabled = !valid;
+        }
+
+        weightInput.addEventListener('input', checkFormValidity);
+        ageSelect.addEventListener('change', checkFormValidity);
+
+        // Calculate
+        calculateBtn.addEventListener('click', async () => {
+            const btnText = calculateBtn.querySelector('.btn-text');
+            const btnLoading = calculateBtn.querySelector('.btn-loading');
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'inline-flex';
+            calculateBtn.disabled = true;
+            errorMsg.style.display = 'none';
+
+            try {
+                const response = await fetch('{% url "nutrition:calculate" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                    body: JSON.stringify({
+                        weight: parseFloat(weightInput.value),
+                        age_category: ageSelect.value,
+                        activity_level: activityHidden.value,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '計算失敗');
+                }
+
+                displayResults(data);
+
+            } catch (err) {
+                errorMsg.textContent = err.message;
+                errorMsg.style.display = 'block';
+            } finally {
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+                checkFormValidity();
+            }
+        });
+
+        function displayResults(data) {
+            resultsSection.style.display = 'block';
+            resultsSection.classList.add('show');
+
+            // Animate DER number
+            animateNumber('der-value', data.der);
+
+            // Detail values
+            document.getElementById('rer-value').textContent = data.rer + ' kcal';
+            document.getElementById('age-factor-value').textContent = '×' + data.age_factor;
+            document.getElementById('activity-factor-value').textContent = '×' + data.activity_factor;
+
+            // Macros
+            document.getElementById('protein-value').textContent = data.protein_g + ' g';
+            document.getElementById('fat-value').textContent = data.fat_g + ' g';
+            document.getElementById('carb-value').textContent = data.carb_g + ' g';
+
+            // Animate bars
+            setTimeout(() => {
+                document.getElementById('protein-bar').style.width = '52%';
+                document.getElementById('fat-bar').style.width = '36%';
+                document.getElementById('carb-bar').style.width = '12%';
+            }, 300);
+
+            // Animate ring
+            const ring = document.getElementById('calorie-ring-fill');
+            const circumference = 2 * Math.PI * 70;
+            ring.style.strokeDasharray = circumference;
+            const maxCal = 600;
+            const pct = Math.min(data.der / maxCal, 1);
+            setTimeout(() => {
+                ring.style.strokeDashoffset = circumference * (1 - pct);
+            }, 200);
+
+            // Scroll to results
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function animateNumber(elementId, target) {
+            const el = document.getElementById(elementId);
+            const duration = 800;
+            const start = performance.now();
+            const startVal = 0;
+
+            function update(now) {
+                const elapsed = now - start;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                el.textContent = Math.round(startVal + (target - startVal) * eased);
+                if (progress < 1) requestAnimationFrame(update);
+                else el.textContent = target;
+            }
+            requestAnimationFrame(update);
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let c of cookies) {
+                    c = c.trim();
+                    if (c.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(c.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    })();
+    </script>
+</body>
+</html>
