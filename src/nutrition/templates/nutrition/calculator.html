@@ -191,16 +191,31 @@
 
                 <!-- Remaining Fresh Food Calories -->
                 <div class="remaining-card" id="remaining-card" style="display:none;">
-                    <div class="remaining-header">
-                        <h3 class="subsection-title no-margin">🍖 剩餘鮮食需求熱量</h3>
-                        <div class="remaining-value-box">
-                            <span class="remaining-number" id="remaining-value">0</span>
-                            <span class="calorie-unit">kcal</span>
+                    <div class="remaining-badge">🍖 剩餘鮮食需求</div>
+                    <div class="remaining-hero">
+                        <span class="remaining-number" id="remaining-value">0</span>
+                        <span class="remaining-unit">kcal</span>
+                    </div>
+                    <div class="remaining-subtitle">扣除乾糧後，需由鮮食補足的每日熱量</div>
+
+                    <!-- Progress bar: dry food vs fresh food -->
+                    <div class="calorie-breakdown" id="calorie-breakdown" style="display:none;">
+                        <div class="breakdown-bar">
+                            <div class="breakdown-fill dry" id="breakdown-dry" style="width:0%"></div>
+                            <div class="breakdown-fill fresh" id="breakdown-fresh" style="width:0%"></div>
+                        </div>
+                        <div class="breakdown-legend">
+                            <span class="legend-item dry">
+                                <span class="legend-dot"></span>
+                                乾糧 <strong id="dry-food-kcal-value">0</strong> kcal
+                            </span>
+                            <span class="legend-item fresh">
+                                <span class="legend-dot"></span>
+                                鮮食 <strong id="fresh-food-kcal-value">0</strong> kcal
+                            </span>
                         </div>
                     </div>
-                    <div class="dry-food-stats" id="dry-food-stats" style="display:none;">
-                        乾糧提供熱量：<strong id="dry-food-kcal-value">0</strong> kcal
-                    </div>
+
                     <div class="remaining-warning" id="remaining-warning" style="display:none;">
                         ⚠️ 乾糧熱量已達到或超過每日需求，建議減少乾糧餵食量。
                     </div>
@@ -353,21 +368,30 @@
             const remainingCard = document.getElementById('remaining-card');
             const remainingVal = document.getElementById('remaining-value');
             const remainingWarning = document.getElementById('remaining-warning');
-            const dfStats = document.getElementById('dry-food-stats');
-            const dfKcalValue = document.getElementById('dry-food-kcal-value');
+            const breakdownSection = document.getElementById('calorie-breakdown');
 
             if (hasDryFood) {
                 remainingCard.style.display = 'block';
-                dfStats.style.display = 'block';
-                dfKcalValue.textContent = data.dry_food_kcal;
                 animateNumber('remaining-value', data.remaining_kcal);
+
+                // Breakdown bar
+                breakdownSection.style.display = 'block';
+                document.getElementById('dry-food-kcal-value').textContent = data.dry_food_kcal;
+                document.getElementById('fresh-food-kcal-value').textContent = data.remaining_kcal;
+
+                const dryPct = Math.min((data.dry_food_kcal / data.der) * 100, 100);
+                const freshPct = Math.max(100 - dryPct, 0);
+                setTimeout(() => {
+                    document.getElementById('breakdown-dry').style.width = dryPct + '%';
+                    document.getElementById('breakdown-fresh').style.width = freshPct + '%';
+                }, 200);
 
                 if (data.remaining_kcal <= 0) {
                     remainingWarning.style.display = 'block';
-                    remainingVal.style.color = 'var(--accent-rose)';
+                    remainingCard.classList.add('over-limit');
                 } else {
                     remainingWarning.style.display = 'none';
-                    remainingVal.style.color = '';
+                    remainingCard.classList.remove('over-limit');
                 }
             } else {
                 remainingCard.style.display = 'none';
