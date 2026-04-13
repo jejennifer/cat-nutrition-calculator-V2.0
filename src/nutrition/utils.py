@@ -4,7 +4,16 @@
 公式：
   RER (靜態能量需求) = 70 × 體重(kg)^0.75
   DER (每日能量需求) = RER × 年齡係數 × 活動係數
+  剩餘鮮食熱量 = DER - (乾糧克數 / 1000 × 該乾糧 kcal/kg)
 """
+
+import csv
+import os
+from functools import lru_cache
+from pathlib import Path
+
+# 取得專案的 BASE_DIR (目前檔案在 src/nutrition/utils.py)
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # 年齡層係數
 AGE_FACTORS = {
@@ -41,6 +50,42 @@ ACTIVITY_CHOICES = [
 ]
 
 
+@lru_cache(maxsize=1)
+def load_dry_food_data() -> tuple:
+    """
+    從 CSV 讀取乾糧資料並回傳 tuple[dict]（使用 lru_cache 避免每次請求重讀檔案）。
+    CSV 結構: 食物名稱,類型,水分,蛋白質,脂肪,碳水,熱量
+    熱量欄位格式: "4025cal/1kg"
+    """
+    csv_path = os.path.join(BASE_DIR, 'nutrition', 'ref', 'food_data_dry_20260122.csv')
+
+    dry_foods = []
+
+    if not os.path.exists(csv_path):
+        return tuple(dry_foods)
+
+    with open(csv_path, mode='r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            name = row.get('食物名稱', '').strip()
+            kcal_str = row.get('熱量', '').strip()
+
+            # 從 "4025cal/1kg" 中擷取數字 "4025"
+            kcal_per_kg = 0
+            if kcal_str:
+                digits = ''.join(filter(str.isdigit, kcal_str.split('cal')[0]))
+                if digits:
+                    kcal_per_kg = int(digits)
+
+            if name and kcal_per_kg > 0:
+                dry_foods.append({
+                    'name': name,
+                    'kcal_per_kg': kcal_per_kg,
+                })
+
+    return tuple(dry_foods)
+
+
 def calculate_rer(weight_kg: float) -> float:
     """計算靜態能量需求 (RER) = 70 × weight^0.75"""
     if weight_kg <= 0:
@@ -48,9 +93,16 @@ def calculate_rer(weight_kg: float) -> float:
     return 70 * (weight_kg ** 0.75)
 
 
-def calculate_der(weight_kg: float, age_category: str, activity_level: str) -> dict:
+def calculate_der(
+    weight_kg: float,
+    age_category: str,
+    activity_level: str,
+    dry_food_kcal_per_kg: int = 0,
+    dry_food_g: float = 0,
+) -> dict:
     """
     計算每日能量需求 (DER) 以及營養素建議量。
+    若提供乾糧熱量與餵食克數，將計算並回傳剩餘鮮食需求熱量。
 
     回傳 dict:
       - rer: 靜態能量需求 (kcal)
@@ -60,6 +112,8 @@ def calculate_der(weight_kg: float, age_category: str, activity_level: str) -> d
       - protein_g: 每日蛋白質建議 (g)
       - fat_g: 每日脂肪建議 (g)
       - carb_g: 每日碳水化合物建議 (g)
+      - dry_food_kcal: 乾糧提供的熱量 (kcal)
+      - remaining_kcal: 剩餘需要鮮食補足的熱量 (kcal)
     """
     if age_category not in AGE_FACTORS:
         raise ValueError(f'無效的年齡層: {age_category}')
@@ -71,6 +125,10 @@ def calculate_der(weight_kg: float, age_category: str, activity_level: str) -> d
 
     rer = calculate_rer(weight_kg)
     der = rer * age_factor * activity_factor
+
+    # 乾糧熱量扣除
+    dry_food_kcal = (dry_food_g / 1000) * dry_food_kcal_per_kg
+    remaining_kcal = max(0, der - dry_food_kcal)
 
     # 營養素建議分佈
     # 蛋白質: 約 52% 熱量 → 1g 蛋白質 = 4 kcal
@@ -88,4 +146,6 @@ def calculate_der(weight_kg: float, age_category: str, activity_level: str) -> d
         'protein_g': round(protein_g, 1),
         'fat_g': round(fat_g, 1),
         'carb_g': round(carb_g, 1),
+        'dry_food_kcal': round(dry_food_kcal, 1),
+        'remaining_kcal': round(remaining_kcal, 1),
     }

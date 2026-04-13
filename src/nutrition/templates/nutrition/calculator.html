@@ -90,6 +90,43 @@
                     </div>
                 </div>
 
+                <!-- Divider -->
+                <div class="section-divider small-divider"></div>
+
+                <!-- Dry Food Section -->
+                <h2 class="section-title">
+                    <span class="section-icon">🥣</span>
+                    目前乾糧攝取（選填）
+                </h2>
+
+                <div class="form-grid">
+                    <!-- Brand Select -->
+                    <div class="form-group" id="dry-food-group">
+                        <label for="dry_food_select">乾糧品牌</label>
+                        <div class="select-wrapper">
+                            <select id="dry_food_select" name="dry_food_select">
+                                <option value="" selected>不扣除乾糧</option>
+                                {% for item in dry_foods %}
+                                <option value="{{ item.kcal_per_kg }}">{{ item.name }}（{{ item.kcal_per_kg }} kcal/kg）</option>
+                                {% endfor %}
+                            </select>
+                            <span class="select-arrow">▾</span>
+                        </div>
+                    </div>
+
+                    <!-- Amount Input -->
+                    <div class="form-group" id="dry-food-amount-group">
+                        <label for="dry_food_amount">每日餵食量 (g)</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="dry_food_amount" name="dry_food_amount"
+                                   min="0" max="500" step="1"
+                                   placeholder="例：30" autocomplete="off" value="0">
+                            <span class="input-unit">g</span>
+                        </div>
+                        <div class="input-hint">選擇品牌後，輸入每天餵的乾糧克數</div>
+                    </div>
+                </div>
+
                 <!-- Calculate Button -->
                 <button type="button" id="calculate-btn" class="calculate-btn" disabled>
                     <span class="btn-text">開始計算</span>
@@ -152,8 +189,25 @@
                     </div>
                 </div>
 
+                <!-- Remaining Fresh Food Calories -->
+                <div class="remaining-card" id="remaining-card" style="display:none;">
+                    <div class="remaining-header">
+                        <h3 class="subsection-title no-margin">🍖 剩餘鮮食需求熱量</h3>
+                        <div class="remaining-value-box">
+                            <span class="remaining-number" id="remaining-value">0</span>
+                            <span class="calorie-unit">kcal</span>
+                        </div>
+                    </div>
+                    <div class="dry-food-stats" id="dry-food-stats" style="display:none;">
+                        乾糧提供熱量：<strong id="dry-food-kcal-value">0</strong> kcal
+                    </div>
+                    <div class="remaining-warning" id="remaining-warning" style="display:none;">
+                        ⚠️ 乾糧熱量已達到或超過每日需求，建議減少乾糧餵食量。
+                    </div>
+                </div>
+
                 <!-- Macronutrients -->
-                <h3 class="subsection-title">每日營養素建議</h3>
+                <h3 class="subsection-title">每日總營養素建議</h3>
                 <div class="macro-grid">
                     <div class="macro-card protein">
                         <div class="macro-bar">
@@ -192,6 +246,7 @@
                     <h4>📘 計算公式</h4>
                     <p><strong>RER</strong> = 70 × 體重(kg)<sup>0.75</sup></p>
                     <p><strong>DER</strong> = RER × 年齡係數 × 活動係數</p>
+                    <p><strong>剩餘鮮食熱量</strong> = DER − 乾糧熱量</p>
                 </div>
             </section>
         </main>
@@ -208,6 +263,8 @@
         const ageSelect = document.getElementById('age_category');
         const activityHidden = document.getElementById('activity_level');
         const activityBtns = document.querySelectorAll('.activity-btn');
+        const dryFoodSelect = document.getElementById('dry_food_select');
+        const dryFoodAmount = document.getElementById('dry_food_amount');
         const calculateBtn = document.getElementById('calculate-btn');
         const errorMsg = document.getElementById('error-msg');
         const resultsSection = document.getElementById('results-section');
@@ -222,7 +279,7 @@
             });
         });
 
-        // Form validation
+        // Form validation (dry food fields are optional)
         function checkFormValidity() {
             const valid = weightInput.value > 0
                        && ageSelect.value !== ''
@@ -243,6 +300,9 @@
             errorMsg.style.display = 'none';
 
             try {
+                const dryFoodKcalPerKg = parseInt(dryFoodSelect.value) || 0;
+                const dryFoodG = parseFloat(dryFoodAmount.value) || 0;
+
                 const response = await fetch('{% url "nutrition:calculate" %}', {
                     method: 'POST',
                     headers: {
@@ -253,6 +313,8 @@
                         weight: parseFloat(weightInput.value),
                         age_category: ageSelect.value,
                         activity_level: activityHidden.value,
+                        dry_food_kcal_per_kg: dryFoodKcalPerKg,
+                        dry_food_g: dryFoodG,
                     }),
                 });
 
@@ -262,7 +324,8 @@
                     throw new Error(data.error || '計算失敗');
                 }
 
-                displayResults(data);
+                const hasDryFood = dryFoodKcalPerKg > 0 && dryFoodG > 0;
+                displayResults(data, hasDryFood);
 
             } catch (err) {
                 errorMsg.textContent = err.message;
@@ -274,7 +337,7 @@
             }
         });
 
-        function displayResults(data) {
+        function displayResults(data, hasDryFood) {
             resultsSection.style.display = 'block';
             resultsSection.classList.add('show');
 
@@ -285,6 +348,30 @@
             document.getElementById('rer-value').textContent = data.rer + ' kcal';
             document.getElementById('age-factor-value').textContent = '×' + data.age_factor;
             document.getElementById('activity-factor-value').textContent = '×' + data.activity_factor;
+
+            // Remaining fresh food section
+            const remainingCard = document.getElementById('remaining-card');
+            const remainingVal = document.getElementById('remaining-value');
+            const remainingWarning = document.getElementById('remaining-warning');
+            const dfStats = document.getElementById('dry-food-stats');
+            const dfKcalValue = document.getElementById('dry-food-kcal-value');
+
+            if (hasDryFood) {
+                remainingCard.style.display = 'block';
+                dfStats.style.display = 'block';
+                dfKcalValue.textContent = data.dry_food_kcal;
+                animateNumber('remaining-value', data.remaining_kcal);
+
+                if (data.remaining_kcal <= 0) {
+                    remainingWarning.style.display = 'block';
+                    remainingVal.style.color = 'var(--accent-rose)';
+                } else {
+                    remainingWarning.style.display = 'none';
+                    remainingVal.style.color = '';
+                }
+            } else {
+                remainingCard.style.display = 'none';
+            }
 
             // Macros
             document.getElementById('protein-value').textContent = data.protein_g + ' g';

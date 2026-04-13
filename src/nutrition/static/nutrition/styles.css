@@ -560,6 +560,63 @@ body {
     font-weight: 700;
     color: var(--text-primary);
 }
+/* --- Remaining Fresh Food Card --- */
+.remaining-card {
+    background: linear-gradient(145deg, rgba(236, 72, 153, 0.08), rgba(139, 92, 246, 0.1));
+    border: 2px solid var(--accent-purple);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    margin: 28px 0 24px;
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.12);
+}
+
+.remaining-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.no-margin {
+    margin: 0 !important;
+}
+
+.remaining-value-box {
+    text-align: right;
+}
+
+.remaining-number {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--accent-purple-light);
+    line-height: 1;
+}
+
+.dry-food-stats {
+    margin-top: 14px;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+.dry-food-stats strong {
+    color: var(--text-primary);
+}
+
+.remaining-warning {
+    margin-top: 14px;
+    padding: 12px;
+    background: rgba(244, 63, 94, 0.12);
+    border-radius: var(--radius-sm);
+    color: var(--accent-rose);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.small-divider {
+    margin: 28px 0 24px;
+}
 
 /* --- Macro Cards --- */
 .macro-grid {
