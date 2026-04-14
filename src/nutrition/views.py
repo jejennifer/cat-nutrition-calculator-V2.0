@@ -35,6 +35,9 @@ def calculate_api(request):
         activity_level = data.get('activity_level', '')
         dry_food_kcal_per_kg = int(data.get('dry_food_kcal_per_kg', 0))
         dry_food_g = float(data.get('dry_food_g', 0))
+        dry_food_protein_pct = float(data.get('dry_food_protein_pct', 0))
+        dry_food_fat_pct = float(data.get('dry_food_fat_pct', 0))
+        dry_food_carb_pct = float(data.get('dry_food_carb_pct', 0))
 
         if weight_kg <= 0:
             return JsonResponse({'error': '請輸入有效的體重（大於 0）'}, status=400)
@@ -42,6 +45,7 @@ def calculate_api(request):
         result = calculate_der(
             weight_kg, age_category, activity_level,
             dry_food_kcal_per_kg, dry_food_g,
+            dry_food_protein_pct, dry_food_fat_pct, dry_food_carb_pct,
         )
         return JsonResponse({'success': True, **result})
 

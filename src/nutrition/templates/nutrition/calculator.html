@@ -221,39 +221,45 @@
                     </div>
                 </div>
 
-                <!-- Macronutrients -->
-                <h3 class="subsection-title">每日總營養素建議</h3>
-                <div class="macro-grid">
-                    <div class="macro-card protein">
-                        <div class="macro-bar">
-                            <div class="macro-bar-fill" id="protein-bar" style="width:0%"></div>
-                        </div>
-                        <div class="macro-info">
-                            <span class="macro-name">蛋白質</span>
-                            <span class="macro-value" id="protein-value">— g</span>
-                        </div>
-                        <span class="macro-percent">52%</span>
-                    </div>
-                    <div class="macro-card fat">
-                        <div class="macro-bar">
-                            <div class="macro-bar-fill" id="fat-bar" style="width:0%"></div>
-                        </div>
-                        <div class="macro-info">
-                            <span class="macro-name">脂肪</span>
-                            <span class="macro-value" id="fat-value">— g</span>
-                        </div>
-                        <span class="macro-percent">36%</span>
-                    </div>
-                    <div class="macro-card carb">
-                        <div class="macro-bar">
-                            <div class="macro-bar-fill" id="carb-bar" style="width:0%"></div>
-                        </div>
-                        <div class="macro-info">
-                            <span class="macro-name">碳水化合物</span>
-                            <span class="macro-value" id="carb-value">— g</span>
-                        </div>
-                        <span class="macro-percent">12%</span>
-                    </div>
+                <!-- Nutrient Comparison Table -->
+                <h3 class="subsection-title">營養素分析</h3>
+                <div class="nutrient-table-wrap">
+                    <table class="nutrient-table" id="nutrient-table">
+                        <thead>
+                            <tr>
+                                <th>營養素</th>
+                                <th>每日所需</th>
+                                <th id="col-dry" style="display:none;">乾糧提供</th>
+                                <th id="col-fresh" style="display:none;">🍖 鮮食需補</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="nutrient-dot protein-dot"></span>蛋白質</td>
+                                <td id="total-protein">—</td>
+                                <td id="dry-protein" style="display:none;">—</td>
+                                <td id="fresh-protein" style="display:none;">—</td>
+                            </tr>
+                            <tr>
+                                <td><span class="nutrient-dot fat-dot"></span>脂肪</td>
+                                <td id="total-fat">—</td>
+                                <td id="dry-fat" style="display:none;">—</td>
+                                <td id="fresh-fat" style="display:none;">—</td>
+                            </tr>
+                            <tr>
+                                <td><span class="nutrient-dot carb-dot"></span>碳水化合物</td>
+                                <td id="total-carb">—</td>
+                                <td id="dry-carb" style="display:none;">—</td>
+                                <td id="fresh-carb" style="display:none;">—</td>
+                            </tr>
+                            <tr class="total-row">
+                                <td>🔥 熱量</td>
+                                <td id="total-kcal">—</td>
+                                <td id="dry-kcal" style="display:none;">—</td>
+                                <td id="fresh-kcal" style="display:none;">—</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <!-- Formula Explanation -->
@@ -274,6 +280,9 @@
 
     <script>
     (function() {
+        // Dry food data from Django (includes nutrient percentages)
+        const dryFoodsData = {{ dry_foods_json|safe }};
+
         const weightInput = document.getElementById('weight');
         const ageSelect = document.getElementById('age_category');
         const activityHidden = document.getElementById('activity_level');
@@ -305,6 +314,13 @@
         weightInput.addEventListener('input', checkFormValidity);
         ageSelect.addEventListener('change', checkFormValidity);
 
+        // Find selected dry food's nutrient data
+        function getSelectedDryFood() {
+            const kcalPerKg = parseInt(dryFoodSelect.value) || 0;
+            if (kcalPerKg === 0) return null;
+            return dryFoodsData.find(f => f.kcal_per_kg === kcalPerKg) || null;
+        }
+
         // Calculate
         calculateBtn.addEventListener('click', async () => {
             const btnText = calculateBtn.querySelector('.btn-text');
@@ -317,6 +333,18 @@
             try {
                 const dryFoodKcalPerKg = parseInt(dryFoodSelect.value) || 0;
                 const dryFoodG = parseFloat(dryFoodAmount.value) || 0;
+                const selectedFood = getSelectedDryFood();
+
+                const payload = {
+                    weight: parseFloat(weightInput.value),
+                    age_category: ageSelect.value,
+                    activity_level: activityHidden.value,
+                    dry_food_kcal_per_kg: dryFoodKcalPerKg,
+                    dry_food_g: dryFoodG,
+                    dry_food_protein_pct: selectedFood ? selectedFood.protein_pct : 0,
+                    dry_food_fat_pct: selectedFood ? selectedFood.fat_pct : 0,
+                    dry_food_carb_pct: selectedFood ? selectedFood.carb_pct : 0,
+                };
 
                 const response = await fetch('{% url "nutrition:calculate" %}', {
                     method: 'POST',
@@ -324,13 +352,7 @@
                         'Content-Type': 'application/json',
                         'X-CSRFToken': getCookie('csrftoken'),
                     },
-                    body: JSON.stringify({
-                        weight: parseFloat(weightInput.value),
-                        age_category: ageSelect.value,
-                        activity_level: activityHidden.value,
-                        dry_food_kcal_per_kg: dryFoodKcalPerKg,
-                        dry_food_g: dryFoodG,
-                    }),
+                    body: JSON.stringify(payload),
                 });
 
                 const data = await response.json();
@@ -366,7 +388,6 @@
 
             // Remaining fresh food section
             const remainingCard = document.getElementById('remaining-card');
-            const remainingVal = document.getElementById('remaining-value');
             const remainingWarning = document.getElementById('remaining-warning');
             const breakdownSection = document.getElementById('calorie-breakdown');
 
@@ -374,7 +395,6 @@
                 remainingCard.style.display = 'block';
                 animateNumber('remaining-value', data.remaining_kcal);
 
-                // Breakdown bar
                 breakdownSection.style.display = 'block';
                 document.getElementById('dry-food-kcal-value').textContent = data.dry_food_kcal;
                 document.getElementById('fresh-food-kcal-value').textContent = data.remaining_kcal;
@@ -397,17 +417,32 @@
                 remainingCard.style.display = 'none';
             }
 
-            // Macros
-            document.getElementById('protein-value').textContent = data.protein_g + ' g';
-            document.getElementById('fat-value').textContent = data.fat_g + ' g';
-            document.getElementById('carb-value').textContent = data.carb_g + ' g';
+            // Nutrient table
+            const dryCols = document.querySelectorAll('#col-dry, #dry-protein, #dry-fat, #dry-carb, #dry-kcal');
+            const freshCols = document.querySelectorAll('#col-fresh, #fresh-protein, #fresh-fat, #fresh-carb, #fresh-kcal');
 
-            // Animate bars
-            setTimeout(() => {
-                document.getElementById('protein-bar').style.width = '52%';
-                document.getElementById('fat-bar').style.width = '36%';
-                document.getElementById('carb-bar').style.width = '12%';
-            }, 300);
+            document.getElementById('total-protein').textContent = data.protein_g + ' g';
+            document.getElementById('total-fat').textContent = data.fat_g + ' g';
+            document.getElementById('total-carb').textContent = data.carb_g + ' g';
+            document.getElementById('total-kcal').textContent = data.der + ' kcal';
+
+            if (hasDryFood) {
+                dryCols.forEach(el => el.style.display = '');
+                freshCols.forEach(el => el.style.display = '');
+
+                document.getElementById('dry-protein').textContent = data.dry_protein_g + ' g';
+                document.getElementById('dry-fat').textContent = data.dry_fat_g + ' g';
+                document.getElementById('dry-carb').textContent = data.dry_carb_g + ' g';
+                document.getElementById('dry-kcal').textContent = data.dry_food_kcal + ' kcal';
+
+                document.getElementById('fresh-protein').textContent = data.fresh_protein_g + ' g';
+                document.getElementById('fresh-fat').textContent = data.fresh_fat_g + ' g';
+                document.getElementById('fresh-carb').textContent = data.fresh_carb_g + ' g';
+                document.getElementById('fresh-kcal').textContent = data.remaining_kcal + ' kcal';
+            } else {
+                dryCols.forEach(el => el.style.display = 'none');
+                freshCols.forEach(el => el.style.display = 'none');
+            }
 
             // Animate ring
             const ring = document.getElementById('calorie-ring-fill');

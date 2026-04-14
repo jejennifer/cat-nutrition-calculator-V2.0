@@ -719,69 +719,81 @@ body {
     margin: 28px 0 24px;
 }
 
-/* --- Macro Cards --- */
-.macro-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+/* --- Nutrient Comparison Table --- */
+.nutrient-table-wrap {
+    overflow-x: auto;
+    margin-bottom: 8px;
 }
 
-.macro-card {
+.nutrient-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-md);
-    padding: 16px 18px;
-    position: relative;
     overflow: hidden;
+    font-size: 0.92rem;
 }
 
-.macro-bar {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.macro-bar-fill {
-    height: 100%;
-    border-radius: 0 3px 3px 0;
-    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.protein .macro-bar-fill { background: var(--accent-cyan); }
-.fat .macro-bar-fill { background: var(--accent-orange); }
-.carb .macro-bar-fill { background: var(--accent-green); }
-
-.macro-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.macro-name {
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-.macro-value {
+.nutrient-table thead th {
+    padding: 14px 16px;
+    text-align: left;
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid var(--border-glass);
 }
 
-.protein .macro-name, .protein .macro-value { color: var(--accent-cyan); }
-.fat .macro-name, .fat .macro-value { color: var(--accent-orange); }
-.carb .macro-name, .carb .macro-value { color: var(--accent-green); }
-
-.macro-percent {
-    position: absolute;
-    top: 14px;
-    right: 18px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-muted);
+/* Highlight the fresh food column header */
+.nutrient-table thead th:last-child {
+    color: var(--accent-green);
 }
+
+.nutrient-table tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.nutrient-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.nutrient-table tbody tr:hover {
+    background: rgba(139, 92, 246, 0.05);
+}
+
+/* Total row (熱量) */
+.nutrient-table .total-row td {
+    font-weight: 700;
+    border-top: 1px solid var(--border-glass);
+    padding-top: 16px;
+}
+
+/* Highlight the fresh food column values */
+.nutrient-table tbody td:last-child {
+    color: var(--accent-green);
+    font-weight: 700;
+}
+
+/* Nutrient color dots */
+.nutrient-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.protein-dot { background: var(--accent-cyan); }
+.fat-dot { background: var(--accent-orange); }
+.carb-dot { background: var(--accent-green); }
 
 /* --- Formula Box --- */
 .formula-box {

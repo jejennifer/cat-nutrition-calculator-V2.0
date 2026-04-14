@@ -5,6 +5,7 @@
   RER (靜態能量需求) = 70 × 體重(kg)^0.75
   DER (每日能量需求) = RER × 年齡係數 × 活動係數
   剩餘鮮食熱量 = DER - (乾糧克數 / 1000 × 該乾糧 kcal/kg)
+  鮮食營養素 = 所需營養素 - 乾糧營養素
 """
 
 import csv
@@ -50,12 +51,21 @@ ACTIVITY_CHOICES = [
 ]
 
 
+def _parse_percent(s: str) -> float:
+    """將 '34.40%' 或 '34%' 轉為小數 0.344"""
+    s = s.strip().replace('%', '')
+    try:
+        return float(s) / 100
+    except (ValueError, TypeError):
+        return 0.0
+
+
 @lru_cache(maxsize=1)
 def load_dry_food_data() -> tuple:
     """
     從 CSV 讀取乾糧資料並回傳 tuple[dict]（使用 lru_cache 避免每次請求重讀檔案）。
     CSV 結構: 食物名稱,類型,水分,蛋白質,脂肪,碳水,熱量
-    熱量欄位格式: "4025cal/1kg"
+    現在也包含各營養素百分比，供前端計算乾糧提供的營養素克數。
     """
     csv_path = os.path.join(BASE_DIR, 'nutrition', 'ref', 'food_data_dry_20260122.csv')
 
@@ -77,10 +87,18 @@ def load_dry_food_data() -> tuple:
                 if digits:
                     kcal_per_kg = int(digits)
 
+            # 解析營養素百分比
+            protein_pct = _parse_percent(row.get('蛋白質', '0'))
+            fat_pct = _parse_percent(row.get('脂肪', '0'))
+            carb_pct = _parse_percent(row.get('碳水', '0'))
+
             if name and kcal_per_kg > 0:
                 dry_foods.append({
                     'name': name,
                     'kcal_per_kg': kcal_per_kg,
+                    'protein_pct': round(protein_pct, 4),
+                    'fat_pct': round(fat_pct, 4),
+                    'carb_pct': round(carb_pct, 4),
                 })
 
     return tuple(dry_foods)
@@ -99,21 +117,21 @@ def calculate_der(
     activity_level: str,
     dry_food_kcal_per_kg: int = 0,
     dry_food_g: float = 0,
+    dry_food_protein_pct: float = 0,
+    dry_food_fat_pct: float = 0,
+    dry_food_carb_pct: float = 0,
 ) -> dict:
     """
     計算每日能量需求 (DER) 以及營養素建議量。
-    若提供乾糧熱量與餵食克數，將計算並回傳剩餘鮮食需求熱量。
+    若提供乾糧資料，將計算乾糧營養素及剩餘鮮食需要補足的營養素。
 
     回傳 dict:
-      - rer: 靜態能量需求 (kcal)
-      - der: 每日能量需求 (kcal)
-      - age_factor: 年齡係數
-      - activity_factor: 活動係數
-      - protein_g: 每日蛋白質建議 (g)
-      - fat_g: 每日脂肪建議 (g)
-      - carb_g: 每日碳水化合物建議 (g)
+      - rer, der, age_factor, activity_factor
+      - protein_g, fat_g, carb_g: 每日建議總營養素 (g)
       - dry_food_kcal: 乾糧提供的熱量 (kcal)
       - remaining_kcal: 剩餘需要鮮食補足的熱量 (kcal)
+      - dry_protein_g, dry_fat_g, dry_carb_g: 乾糧提供的營養素 (g)
+      - fresh_protein_g, fresh_fat_g, fresh_carb_g: 鮮食需補足的營養素 (g)
     """
     if age_category not in AGE_FACTORS:
         raise ValueError(f'無效的年齡層: {age_category}')
@@ -130,13 +148,23 @@ def calculate_der(
     dry_food_kcal = (dry_food_g / 1000) * dry_food_kcal_per_kg
     remaining_kcal = max(0, der - dry_food_kcal)
 
-    # 營養素建議分佈
+    # 每日建議總營養素
     # 蛋白質: 約 52% 熱量 → 1g 蛋白質 = 4 kcal
     # 脂肪:   約 36% 熱量 → 1g 脂肪 = 9 kcal
     # 碳水:   約 12% 熱量 → 1g 碳水 = 4 kcal
     protein_g = (der * 0.52) / 4
     fat_g = (der * 0.36) / 9
     carb_g = (der * 0.12) / 4
+
+    # 乾糧提供的營養素（克數 = 餵食克數 × 營養素百分比）
+    dry_protein_g = dry_food_g * dry_food_protein_pct
+    dry_fat_g = dry_food_g * dry_food_fat_pct
+    dry_carb_g = dry_food_g * dry_food_carb_pct
+
+    # 鮮食需補足的營養素 = 總需求 - 乾糧提供（不低於 0）
+    fresh_protein_g = max(0, protein_g - dry_protein_g)
+    fresh_fat_g = max(0, fat_g - dry_fat_g)
+    fresh_carb_g = max(0, carb_g - dry_carb_g)
 
     return {
         'rer': round(rer, 1),
@@ -148,4 +176,10 @@ def calculate_der(
         'carb_g': round(carb_g, 1),
         'dry_food_kcal': round(dry_food_kcal, 1),
         'remaining_kcal': round(remaining_kcal, 1),
+        'dry_protein_g': round(dry_protein_g, 1),
+        'dry_fat_g': round(dry_fat_g, 1),
+        'dry_carb_g': round(dry_carb_g, 1),
+        'fresh_protein_g': round(fresh_protein_g, 1),
+        'fresh_fat_g': round(fresh_fat_g, 1),
+        'fresh_carb_g': round(fresh_carb_g, 1),
     }
